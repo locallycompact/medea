@@ -8,13 +8,14 @@ import Control.DeepSeq (NFData (..))
 import Data.Aeson (Value (..))
 import Data.Data (Data)
 import Data.Functor.Classes (Eq1 (..), Show1 (..))
-import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable (..))
 import Data.Scientific (Scientific)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Vector (Vector)
 import Data.Vector.Instances ()
+import Data.Aeson.KeyMap (KeyMap)
+import qualified Data.Aeson.KeyMap as KeyMap
 
 data ValidJSONF a
   = AnythingF !Value
@@ -23,7 +24,7 @@ data ValidJSONF a
   | NumberF {-# UNPACK #-} !Scientific
   | StringF {-# UNPACK #-} !Text
   | ArrayF {-# UNPACK #-} !(Vector a)
-  | ObjectF !(HashMap Text a)
+  | ObjectF !(KeyMap a)
   deriving stock (Functor, Typeable, Data)
 
 instance Foldable ValidJSONF where
@@ -64,7 +65,7 @@ instance Eq1 ValidJSONF where
   liftEq _ (NumberF n) (NumberF n') = n == n'
   liftEq _ (StringF s) (StringF s') = s == s'
   liftEq f (ArrayF v) (ArrayF v') = liftEq f v v'
-  liftEq f (ObjectF hm) (ObjectF hm') = liftEq f hm hm'
+  liftEq f (ObjectF hm) (ObjectF hm') = liftEq f (KeyMap.toMap hm) (KeyMap.toMap hm')
   liftEq _ _ _ = False
 
 instance Show1 ValidJSONF where
@@ -74,7 +75,7 @@ instance Show1 ValidJSONF where
   liftShowsPrec _ _ prec (NumberF n) = showsPrec prec n
   liftShowsPrec _ _ prec (StringF s) = showsPrec prec s
   liftShowsPrec f g prec (ArrayF v) = liftShowsPrec f g prec v
-  liftShowsPrec f g prec (ObjectF hm) = liftShowsPrec f g prec hm
+  liftShowsPrec f g prec (ObjectF hm) = liftShowsPrec f g prec (KeyMap.toMap hm)
 
 instance (Hashable a) => Hashable (ValidJSONF a) where
   {-# INLINE hashWithSalt #-}

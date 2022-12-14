@@ -84,8 +84,6 @@ import Data.Coerce (coerce)
 import Data.Data (Data)
 import Data.Foldable (asum, traverse_)
 import Data.Functor (($>))
-import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
 import Data.Hashable (Hashable (..))
 import qualified Data.Map.Strict as M
 import Data.Medea.Analysis (ArrayType (..), CompiledSchema (..), TypeNode (..), arrayBounds)
@@ -112,6 +110,10 @@ import Data.Text (Text)
 import qualified Data.Vector as V
 import GHC.Generics (Generic)
 import System.IO (Handle)
+import Data.Aeson.KeyMap (KeyMap)
+import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Functor.WithIndex (imap)
+import qualified Data.Aeson.Key as Key
 
 -- | An annotation, describing which schema a given chunk of JSON was deemed to
 -- be valid against.
@@ -370,24 +372,24 @@ checkObject obj parIdent = do
       checkTypes val
 
 pairPropertySchemaAndVal ::
-  HashMap Text Value -> Identifier -> ValidationM (HashMap Text (Value, TypeNode))
+  KeyMap Value -> Identifier -> ValidationM (KeyMap (Value, TypeNode))
 pairPropertySchemaAndVal obj parIdent = do
   scm <- lookupSchema parIdent
-  mappedObj <- traverse (pairProperty scm) . HM.mapWithKey (,) $ obj
-  traverse_ isMatched . HM.mapWithKey (,) . props $ scm
+  mappedObj <- traverse (pairProperty scm) . imap (,) $ obj
+  traverse_ isMatched . imap (,) . props $ scm
   pure mappedObj
   where
     -- maps each property value with the schema it should validate against
-    pairProperty scm (propName, v) = case HM.lookup propName . props $ scm of
+    pairProperty scm (propName, v) = case KeyMap.lookup propName . props $ scm of
       Just (typeNode, _) -> pure (v, typeNode)
       Nothing ->
         if additionalProps scm
           then pure (v, additionalPropSchema scm)
-          else failWith . AdditionalPropFoundButBanned (textify parIdent) $ propName
+          else failWith . AdditionalPropFoundButBanned (textify parIdent) . Key.toText $ propName
     -- throws an error if a non-optional property was not found in the object
-    isMatched (propName, (_, optional)) = case HM.lookup propName obj of
+    isMatched (propName, (_, optional)) = case KeyMap.lookup propName obj of
       Nothing ->
-        unless optional . failWith . RequiredPropertyIsMissing (textify parIdent) $ propName
+        unless optional . failWith . RequiredPropertyIsMissing (textify parIdent) . Key.toText $ propName
       Just _ -> pure ()
 
 -- checkCustoms removes all non custom nodes from the typeNode set and

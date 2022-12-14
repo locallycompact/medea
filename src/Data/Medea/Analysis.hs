@@ -20,8 +20,6 @@ import Control.Monad (foldM, when)
 import Control.Monad.Except (MonadError (..))
 import Data.Can (Can (..))
 import Data.Coerce (coerce)
-import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NEList
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
@@ -62,6 +60,9 @@ import Data.Text (Text)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Prelude
+import Data.Aeson.KeyMap (KeyMap)
+import qualified Data.Aeson.KeyMap as KeyMap
+import qualified Data.Aeson.Key as Key
 
 data AnalysisError
   = DuplicateSchemaName !Identifier
@@ -93,7 +94,7 @@ data CompiledSchema = CompiledSchema
     minArrayLen :: !(Maybe Natural),
     maxArrayLen :: !(Maybe Natural),
     arrayTypes :: !(Maybe ArrayType),
-    props :: !(HashMap Text (TypeNode, Bool)),
+    props :: !(KeyMap (TypeNode, Bool)),
     additionalProps :: !Bool,
     additionalPropSchema :: !TypeNode,
     stringVals :: {-# UNPACK #-} !(Vector Text)
@@ -155,7 +156,7 @@ compileSchema scm = do
   when (isJust minListLen && isJust maxListLen && minListLen > maxListLen)
     $ throwError
     $ MinMoreThanMax schemaName
-  propMap <- foldM go HM.empty (maybe V.empty properties objSpec)
+  propMap <- foldM go KeyMap.empty (maybe V.empty properties objSpec)
   let arrType = getArrayTypes (elementType arraySpec) (tupleSpec arraySpec)
       tupleLen = getTupleTypeLen arrType
       hasPropSpec = isJust objSpec
@@ -187,7 +188,7 @@ compileSchema scm = do
   where
     Schema.Specification schemaName (Type.Specification types) stringValsSpec arraySpec objSpec =
       scm
-    go acc prop = HM.alterF (checkedInsert prop) (coerce $ propName prop) acc
+    go acc prop = KeyMap.alterF (checkedInsert prop) (Key.fromText $ coerce $ propName prop) acc
     checkedInsert prop = \case
       Nothing -> pure . Just $ (identToNode (propSchema prop), propOptional prop)
       Just _ -> throwError $ DuplicatePropName schemaName (propName prop)
@@ -247,7 +248,7 @@ getTypeRefs :: CompiledSchema -> [TypeNode]
 getTypeRefs = NEList.toList . NESet.toList . typesAs
 
 getPropertyTypeRefs :: CompiledSchema -> [TypeNode]
-getPropertyTypeRefs scm = (fmap fst . HM.elems . props $ scm) ++ [additionalPropSchema scm]
+getPropertyTypeRefs scm = (fmap fst . KeyMap.elems . props $ scm) ++ [additionalPropSchema scm]
 
 getListTypeRefs :: CompiledSchema -> [TypeNode]
 getListTypeRefs scm = case arrayTypes scm of

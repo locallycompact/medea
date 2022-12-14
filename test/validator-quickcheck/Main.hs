@@ -2,7 +2,7 @@
 
 module Main where
 
-import Data.Aeson (Array, Object, ToJSON, Value, Value (..), encode)
+import Data.Aeson (Array, Object, ToJSON, Value, Value (..), encode, Key)
 import Data.Aeson.Arbitrary
   ( ObjGenOpts (..),
     arbitraryArray,
@@ -17,9 +17,8 @@ import Data.Aeson.Arbitrary
   )
 import Data.ByteString.Lazy (toStrict)
 import Data.Either (isLeft, isRight)
-import Data.HashMap.Strict (filterWithKey, lookup)
+import Data.Aeson.KeyMap (filterWithKey, lookup)
 import Data.Medea (Schema, loadSchemaFromFile, validate)
-import Data.Text (Text)
 import qualified Data.Vector as V
 import Test.Hspec (Spec, describe, hspec, it, parallel, runIO, shouldNotSatisfy)
 import Test.Hspec.Core.Spec (SpecM)
@@ -27,6 +26,7 @@ import Test.QuickCheck ((==>), Gen, Property, arbitrary, forAll, property)
 import qualified Test.QuickCheck.Gen as Gen
 import TestM (isParseError, isSchemaError)
 import Prelude hiding (lookup)
+import qualified Data.Aeson.Key as Key
 
 main :: IO ()
 main = hspec . parallel $ do
@@ -292,17 +292,17 @@ validationFail gen p scm = property $ forAll gen prop
 
 -- Returns true iff the value is an object with the given property and the
 -- property-value satisfies the predicate.
-hasProperty :: Text -> (Value -> Bool) -> Object -> Bool
+hasProperty :: Key -> (Value -> Bool) -> Object -> Bool
 hasProperty propName p obj = maybe False p $ lookup propName obj
 
 -- Like hasProperty but is also true when the given property is absent.
-hasOptionalProperty :: Text -> (Value -> Bool) -> Object -> Bool
+hasOptionalProperty :: Key -> (Value -> Bool) -> Object -> Bool
 hasOptionalProperty propName p obj = maybe True p $ lookup propName obj
 
 makeMapPred :: ObjGenOpts -> (Value -> Bool) -> Object -> Bool
 makeMapPred (ObjGenOpts props optProps _ _) p = all p . filterWithKey (\k _ -> k `notElem` specifiedProps)
   where
-    specifiedProps = props ++ optProps
+    specifiedProps = Key.fromText <$> props ++ optProps
 
 testStringVals :: FilePath -> [String] -> Spec
 testStringVals fp validStrings = do

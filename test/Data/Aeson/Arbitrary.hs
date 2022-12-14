@@ -19,7 +19,8 @@ import Control.Monad (filterM, replicateM)
 import Control.Monad.Reader (ReaderT, asks, local, runReaderT)
 import Control.Monad.Trans (lift)
 import Data.Aeson (Array, Object, Value (..))
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Text (Text)
 import qualified Data.Vector as V
 import Test.QuickCheck (Arbitrary (..), Gen)
@@ -91,9 +92,9 @@ makeRandomObject (ObjGenOpts props optionalProps minAdditional maxAdditional) = 
   entryCount <- lift $ choose (minAdditional, maxAdditional)
   genKeys <- replicateM entryCount $ lift arbitrary
   someOptionalProps <- filterM (\_ -> lift arbitrary) optionalProps
-  let keys = genKeys ++ props ++ someOptionalProps
+  let keys = genKeys ++ fmap Key.fromText (props ++ someOptionalProps)
   keyVals <- mapM (\x -> (x,) <$> local dec makeRandomValue) keys
-  pure . HM.fromList $ keyVals
+  pure . KeyMap.fromList $ keyVals
 
 dec :: Word -> Word
 dec = subtract 1
