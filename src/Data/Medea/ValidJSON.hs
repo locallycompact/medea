@@ -25,7 +25,7 @@ data ValidJSONF a
   | StringF {-# UNPACK #-} !Text
   | ArrayF {-# UNPACK #-} !(Vector a)
   | ObjectF !(KeyMap a)
-  deriving stock (Functor, Typeable, Data)
+  deriving stock (Eq, Functor, Typeable, Data)
 
 instance Foldable ValidJSONF where
   {-# INLINE foldMap #-}
